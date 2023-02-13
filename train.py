@@ -24,5 +24,11 @@ model.fit(
     validation_data=(x_test, y_test),
 )
 
+print('Saving...')
+model.save('model')
+
+print('Loading...')
+model = tf.keras.models.load_model('model')
+
 scores = model.evaluate(x_test, y_test)
 print("Neural network accuracy: %.2f%%" % (scores[1]*100))
