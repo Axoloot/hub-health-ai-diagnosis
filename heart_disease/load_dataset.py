@@ -1,17 +1,17 @@
 import csv
 import numpy as np
 
-# BREAST CANCER DATASET
+
 def format_heart_disease_label(y):
     if y == '1':
         return 1
     return 0
 
 
-def load_breast_cancer_dataset(dataset_patch, training_size):
+def load_breast_cancer_dataset(dataset_path, training_size):
     print('Getting heart disease dataset...')
 
-    with open(dataset_patch, newline='') as f:
+    with open(dataset_path, newline='') as f:
         reader = csv.reader(f)
         dataset = list(reader)
 
