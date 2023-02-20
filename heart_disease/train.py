@@ -1,13 +1,13 @@
-import numpy as np
 import tensorflow as tf
 
-from load_datasets import load_breast_cancer_dataset
+from load_dataset import load_breast_cancer_dataset
 
-x_train, y_train, x_test, y_test = load_breast_cancer_dataset('./datasets/breast_cancer.csv', 400)
+x_train, y_train, x_test, y_test = load_breast_cancer_dataset('./heart_disease.csv', 400)
 
 model = tf.keras.models.Sequential([
-  tf.keras.layers.Flatten(input_shape=(30,)),
-  tf.keras.layers.Dense(20, activation='softmax'),
+  tf.keras.layers.Flatten(input_shape=(13,)),
+  tf.keras.layers.Dense(26, activation='relu'),
+  tf.keras.layers.Dense(10, activation='relu'),
   tf.keras.layers.Dense(1)
 ])
 
