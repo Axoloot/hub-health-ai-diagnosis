@@ -1,5 +1,6 @@
 import csv
 import numpy as np
+import random
 
 
 def format_fetal_health_label(y):
@@ -14,9 +15,11 @@ def load_fetal_health_dataset(dataset_path, training_size):
     with open(dataset_path, newline='') as f:
         reader = csv.reader(f)
         dataset = list(reader)
+        dataset = dataset[1:]
+        random.shuffle(dataset)
 
-        d_data = [d[2:] for d in dataset[1:]]
-        l_data = [d[1] for d in dataset[1:]]
+        d_data = [d[:-1] for d in dataset]
+        l_data = [d[-1] for d in dataset]
 
         d = [[float(x) for x in data] for data in d_data]
         l = [[format_fetal_health_label(y)] for y in l_data]

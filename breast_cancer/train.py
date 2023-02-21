@@ -6,6 +6,7 @@ x_train, y_train, x_test, y_test = load_breast_cancer_dataset('./breast_cancer.c
 
 model = tf.keras.models.Sequential([
   tf.keras.layers.Flatten(input_shape=(30,)),
+  tf.keras.layers.Dense(45, activation='relu'),
   tf.keras.layers.Dense(20, activation='softmax'),
   tf.keras.layers.Dense(1)
 ])

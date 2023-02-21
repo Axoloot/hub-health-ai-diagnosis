@@ -5,10 +5,9 @@ from load_dataset import load_fetal_health_dataset
 
 x_train, y_train, x_test, y_test = load_fetal_health_dataset('./fetal_health.csv', 1500)
 
-print(np.shape(x_train))
-print(np.shape(x_test))
 model = tf.keras.models.Sequential([
-  tf.keras.layers.Flatten(input_shape=(20,)),
+  tf.keras.layers.Flatten(input_shape=(21,)),
+  tf.keras.layers.Dense(40, activation='relu'),
   tf.keras.layers.Dense(20, activation='softmax'),
   tf.keras.layers.Dense(1)
 ])
@@ -22,7 +21,7 @@ model.compile(
 model.fit(
     x_train,
     y_train,
-    epochs=10,
+    epochs=15,
     validation_data=(x_test, y_test),
 )
 
