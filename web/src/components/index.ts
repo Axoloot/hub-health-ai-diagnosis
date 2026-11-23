@@ -6,3 +6,4 @@ export * from './layout';
 export * from './sick-card';
 export * from './patientCard';
 export * from './sicknessCard';
+export * from './diagnosisForm';

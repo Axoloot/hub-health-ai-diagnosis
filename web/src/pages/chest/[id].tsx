@@ -1,56 +1,78 @@
-import { Button } from '@/components';
-import axios from 'axios';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import { ChangeEvent, useState } from 'react';
+import { toast } from 'react-toastify';
+import { Button } from '@/components';
 import { useUserContext } from '@/providers/userProvider';
+import { predictChestXray } from '@/lib/ai';
+import { saveDiagnosis } from '@/lib/diagnosis';
+import { ROUTER } from '@/lib/utils';
 
-const HandleImage = () => {
-  const Router = useRouter();
+const ChestForm = () => {
+  const router = useRouter();
   const { user } = useUserContext();
-  const today = new Date().toISOString();
+  const patientId = String(router.query.id ?? ``);
+  const imageRef = useRef<HTMLImageElement>(null);
   const [file, setFile] = useState(``);
-  const [fileName, setFileName] = useState(``);
   const [loading, setLoading] = useState(false);
 
+  // Release the object URL when the image changes or the page unmounts.
+  useEffect(
+    () => () => {
+      if (file) URL.revokeObjectURL(file);
+    },
+    [file],
+  );
+
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e && e.target && e.target.files) {
-      setFile(URL.createObjectURL(e.target.files[0]));
-      setFileName(e.target.files[0].name);
+    const selected = e.target.files?.[0];
+    if (selected) setFile(URL.createObjectURL(selected));
+  };
+
+  const analyse = async () => {
+    if (!imageRef.current) return;
+    setLoading(true);
+    try {
+      const prediction = await predictChestXray(imageRef.current);
+      await saveDiagnosis({
+        name: `Chest Sickness`,
+        prediction,
+        patientId,
+        user,
+      });
+      toast.success(
+        `Pneumonie : ${prediction.positive ? `POSITIF` : `NÉGATIF`} (${(
+          prediction.score * 100
+        ).toFixed(1)} %)`,
+      );
+      router.push(`${ROUTER.patientDetails}${patientId}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="h-screen flex bg-gray-bg1">
+    <div className="min-h-screen flex bg-gray-bg1">
       <div className="w-full max-w-md m-auto bg-white rounded-lg border border-primaryBorder shadow-default py-10 px-16">
         <div className="flex flex-col justify-center items-center">
-          <h2>Add Image:</h2>
-          <input type="file" onChange={handleChange} />
-          {file && <img src={file} alt="img" style={{ padding: `1em 0` }} />}
-          {!loading && file && (
+          <h1 className="text-2xl font-medium text-primary mb-6 text-center">
+            Détection de pneumonie sur radiographie thoracique
+          </h1>
+          <input type="file" accept="image/*" onChange={handleChange} />
+          {file && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              ref={imageRef}
+              src={file}
+              alt="Radiographie à analyser"
+              style={{ padding: `1em 0` }}
+            />
+          )}
+          {file && (
             <Button
-              label="Analyser"
-              onClick={() => {
-                setLoading(true);
-                setTimeout(async () => {
-                  const patientId = Router.query.id;
-                  await axios.post(`/api/sickness`, {
-                    name: `Chest Sickness`,
-                    description: `string`,
-                    doctor_supposition: `string`,
-                    doctor_name: user?.pseudo,
-                    doctor_email: user?.email,
-                    ai_supposition:
-                      fileName === `test3.jpeg` ? `POSITIVE` : `NEGATIVE`,
-                    date: new Date().toISOString(),
-                    result:
-                      fileName === `test3.jpeg`
-                        ? `0.8913719`
-                        : Math.random().toString().slice(0, 9),
-                    patientId: patientId,
-                  });
-                  setLoading(false);
-                }, 3000);
-              }}
+              label={loading ? `Analyse…` : `Analyser`}
+              onClick={() => !loading && analyse()}
             />
           )}
         </div>
@@ -59,4 +81,4 @@ const HandleImage = () => {
   );
 };
 
-export default HandleImage;
+export default ChestForm;

@@ -1,175 +1,123 @@
 import { useState } from 'react';
-import { Input, Button } from '../../components';
-import axios from 'axios';
 import { useRouter } from 'next/router';
+import { toast } from 'react-toastify';
+import { Input, Button } from '@/components';
 import { useUserContext } from '@/providers/userProvider';
+import { predictTabular } from '@/lib/ai';
+import { saveDiagnosis } from '@/lib/diagnosis';
 import { ROUTER } from '@/lib/utils';
 
-const HeartForm = () => {
-  const Router = useRouter();
-  const { user } = useUserContext();
-  const patientId = Router.query.id;
-  const [age, setAge] = useState(0);
-  const [sexe, setSexe] = useState(1);
-  const [cp, setCp] = useState(0);
-  const [bps, setBps] = useState(0);
-  const [chol, setChol] = useState(0);
-  const [fbs, setFbs] = useState(0);
-  const [restecg, setRestecg] = useState(0);
-  const [thalach, setThalach] = useState(0);
-  const [exang, setExang] = useState(0);
-  const [oldpeak, setOldpeak] = useState(0);
-  const [slope, setSlope] = useState(0);
-  const [ca, setCa] = useState(0);
-  const [thal, setThal] = useState(0);
+// Columns of ai/heart_disease/heart_disease.csv, in the order the model expects.
+const FIELDS = [
+  { key: `age`, label: `Âge` },
+  { key: `sex`, label: `Sexe (1 = homme, 0 = femme)` },
+  { key: `cp`, label: `Type de douleur thoracique (0 à 3)` },
+  { key: `trestbps`, label: `Pression artérielle au repos (mm Hg)` },
+  { key: `chol`, label: `Cholestérol sérique (mg/dl)` },
+  { key: `fbs`, label: `Glycémie à jeun > 120 mg/dl (1 = oui, 0 = non)` },
+  {
+    key: `restecg`,
+    label: `ECG au repos (0 = normal, 1 = anomalie ST-T, 2 = hypertrophie)`,
+  },
+  { key: `thalach`, label: `Fréquence cardiaque maximale atteinte` },
+  { key: `exang`, label: `Angine induite par l'effort (1 = oui, 0 = non)` },
+  { key: `oldpeak`, label: `Dépression ST induite par l'effort` },
+  { key: `slope`, label: `Pente du segment ST à l'effort (0 à 2)` },
+  { key: `ca`, label: `Nombre de vaisseaux majeurs colorés (0 à 3)` },
+  { key: `thal`, label: `Thalassémie (0 à 3)` },
+] as const;
 
-  const submitForm = async (real: boolean) => {
-    if (real) {
-      const response = await axios.post(`/api/heart`, {
-        data: `[${age},${sexe},${cp},${bps},${chol},${fbs},${restecg},${thalach},${exang},${oldpeak},${slope},${ca},${thal}]`,
-      });
-      const result = response.data.result;
-      await axios.post(`/api/sickness`, {
-        name: `Heart Sickness`,
-        description: `string`,
-        doctor_supposition: `string`,
-        doctor_name: user?.pseudo,
-        doctor_email: user?.email,
-        ai_supposition: parseInt(result[2]) > 5 ? `POSITIVE` : `NEGATIVE`,
-        date: new Date().toISOString(),
-        result,
-        patientId: patientId,
-      });
-      Router.push(ROUTER.listCustomers);
+type FieldKey = (typeof FIELDS)[number][`key`];
+
+// First row of heart_disease.csv (no heart disease).
+const SAMPLE: Record<FieldKey, string> = {
+  age: `52`,
+  sex: `1`,
+  cp: `0`,
+  trestbps: `125`,
+  chol: `212`,
+  fbs: `0`,
+  restecg: `1`,
+  thalach: `168`,
+  exang: `0`,
+  oldpeak: `1`,
+  slope: `2`,
+  ca: `2`,
+  thal: `3`,
+};
+
+const EMPTY = Object.fromEntries(FIELDS.map((f) => [f.key, ``])) as Record<
+  FieldKey,
+  string
+>;
+
+const HeartForm = () => {
+  const router = useRouter();
+  const { user } = useUserContext();
+  const patientId = String(router.query.id ?? ``);
+  const [values, setValues] = useState(EMPTY);
+  const [loading, setLoading] = useState(false);
+
+  const analyse = async () => {
+    const features = FIELDS.map((f) => Number(values[f.key]));
+    const missing = FIELDS.find(
+      (f, i) => values[f.key].trim() === `` || !Number.isFinite(features[i]),
+    );
+    if (missing) {
+      toast.error(`Valeur invalide : ${missing.label}`);
+      return;
     }
-    const response = await axios.post(`/api/heart`, {
-      data: `[52,1,0,125,212,0,1,168,0,1,2,2,3]`,
-    });
-    const result = response.data.result;
-    await axios.post(`/api/sickness`, {
-      name: `Heart Sickness`,
-      description: `string`,
-      doctor_supposition: `string`,
-      doctor_name: user?.pseudo,
-      doctor_email: user?.email,
-      ai_supposition: `POSITIVE`,
-      date: new Date().toISOString(),
-      result,
-      patientId: patientId,
-    });
-    Router.push(ROUTER.listCustomers);
-    console.log(`response :`, response);
-    console.log(`FORM`);
+    setLoading(true);
+    try {
+      const prediction = await predictTabular(`heart_disease`, features);
+      await saveDiagnosis({
+        name: `Heart Sickness`,
+        prediction,
+        patientId,
+        user,
+      });
+      toast.success(
+        `Résultat IA : ${prediction.positive ? `POSITIF` : `NÉGATIF`} (${(
+          prediction.score * 100
+        ).toFixed(1)} %)`,
+      );
+      router.push(`${ROUTER.patientDetails}${patientId}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="h-screen flex bg-gray-bg1">
+    <div className="min-h-screen flex bg-gray-bg1">
       <div className="w-full max-w-xl m-auto bg-white rounded-lg border border-primaryBorder shadow-default py-10 px-8 mt-16">
         <h1 className="text-2xl font-medium text-primary mt-4 mb-12 text-center">
-          Formulaire pour la recherche de cancer du coeur
+          Dépistage des maladies cardiaques
         </h1>
         <div className="flex flex-col justify-center items-center">
-          <Input
-            placeholder="Age"
-            onChange={(value) => setAge(parseInt(value))}
-            value={String(age)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="Sexe"
-            onChange={(value) => setSexe(value === `h` ? 1 : 0)}
-            value={sexe === 1 ? `h` : `f`}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="chest pain type (1 = typical angina; 2 = atypical angina; 3 = non-anginal pain; 4 = asymptomatic)"
-            onChange={(value) => setCp(parseInt(value))}
-            value={String(cp)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="resting blood pressure (in mm Hg on admission to the hospital)"
-            onChange={(value) => setBps(parseInt(value))}
-            value={String(bps)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="serum cholestoral in mg/dl"
-            onChange={(value) => setChol(value === `o` ? 1 : 0)}
-            value={chol === 1 ? `o` : `n`}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="fasting blood sugar > 120 mg/dl (1 = true; 0 = false)"
-            onChange={(value) => setFbs(parseInt(value))}
-            value={String(fbs)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="esting electrocardiographic results (0 = normal; 1 = having ST-T; 2 = hypertrophy)"
-            onChange={(value) => setRestecg(parseInt(value))}
-            value={String(restecg)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="maximum heart rate achieved"
-            onChange={(value) => setThalach(parseInt(value))}
-            value={String(thalach)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="exercise induced angina (1 = yes; 0 = no)"
-            onChange={(value) => setExang(parseInt(value))}
-            value={String(exang)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="ST depression induced by exercise relative to rest"
-            onChange={(value) => setOldpeak(parseInt(value))}
-            value={String(oldpeak)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="the slope of the peak exercise ST segment (1 = upsloping; 2 = flat; 3 = downsloping)"
-            onChange={(value) => setSlope(parseInt(value))}
-            value={String(slope)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="number of major vessels (0-3) colored by flourosopy"
-            onChange={(value) => setCa(parseInt(value))}
-            value={String(ca)}
-            type="string"
-            required
-          />
-          <Input
-            placeholder="3 = normal; 6 = fixed defect; 7 = reversable defect"
-            onChange={(value) => setThal(parseInt(value))}
-            value={String(thal)}
-            type="string"
-            required
-          />
-          <div>
+          {FIELDS.map((field) => (
+            <Input
+              key={field.key}
+              placeholder={field.label}
+              type="number"
+              value={values[field.key]}
+              onChange={(value) =>
+                setValues((prev) => ({ ...prev, [field.key]: value }))
+              }
+              required
+            />
+          ))}
+          <div className="mt-4">
             <Button
-              label="Remplissage de test"
-              onClick={() => submitForm(false)}
+              label="Remplir avec des valeurs de test"
+              onClick={() => setValues(SAMPLE)}
             />
           </div>
           <div className="p-4">
             <Button
-              label="Analyser les resultats"
-              onClick={() => submitForm(true)}
+              label={loading ? `Analyse…` : `Analyser les résultats`}
+              onClick={() => !loading && analyse()}
             />
           </div>
         </div>
