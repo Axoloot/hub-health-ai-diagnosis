@@ -1,40 +1,55 @@
-import '@/lib/database';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { ApiError } from 'next/dist/server/api-utils';
+import dbConnect from '@/lib/database';
+import { requireSession } from '@/lib/auth';
 import PatientModel from '@/lib/models/Patients';
-import '@/lib/models/Sickness';
+import '@/lib/models/Sickness'; // registers the model used by populate()
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
   try {
+    if (!(await requireSession(req, res))) return;
+    await dbConnect();
+
     switch (req.method) {
-      case `POST`:
-        if (!req.body) throw new ApiError(500, `missing body`);
-        const newPatient = new PatientModel(req.body);
-        await newPatient.save();
-        return res.status(200).json(newPatient);
-      case `GET`:
-        const id = req.query.id;
+      case `GET`: {
+        const { id } = req.query;
         if (!id) {
           const patients = await PatientModel.find().populate(`sickness`);
           return res.status(200).json(patients);
         }
-        const patient = await PatientModel.findOne({
-          _id: id,
-        }).populate(`sickness`);
+        const patient = await PatientModel.findById(id).populate(`sickness`);
+        if (!patient) return res.status(404).json({ error: `Not found` });
         return res.status(200).json(patient);
-      case `PATCH`:
-        if (!req.body) throw new ApiError(500, `missing body`);
-        const editedSickness = await PatientModel.findOneAndUpdate(
-          { id: req.body._id },
-          req.body,
+      }
+      case `POST`: {
+        const { firstname, lastname, email } = req.body ?? {};
+        const patient = await PatientModel.create({
+          firstname,
+          lastname,
+          email,
+          sickness: [],
+        });
+        return res.status(201).json(patient);
+      }
+      case `PATCH`: {
+        const { _id, firstname, lastname, email } = req.body ?? {};
+        if (!_id) return res.status(400).json({ error: `Missing _id` });
+        const patient = await PatientModel.findByIdAndUpdate(
+          _id,
+          { firstname, lastname, email },
+          { new: true, runValidators: true, omitUndefined: true },
         );
-        return res.status(200).json(editedSickness);
+        if (!patient) return res.status(404).json({ error: `Not found` });
+        return res.status(200).json(patient);
+      }
+      default:
+        return res.status(405).json({ error: `Method Not Allowed` });
     }
   } catch (e) {
     console.error(e);
-    res.status(500).send({ error: (e as Error).message });
+    const status = (e as Error).name === `ValidationError` ? 400 : 500;
+    return res.status(status).json({ error: (e as Error).message });
   }
 }

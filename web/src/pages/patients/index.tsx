@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { useUserContext } from '@/providers/userProvider';
 import { useRouter } from 'next/router';
 import { ROUTER } from '../../lib/utils';
 import { Layout, Input, Button } from '@/components';
@@ -34,7 +33,6 @@ type PatientFormProps = {
 };
 
 const Patients = () => {
-  const { isAuthenticated } = useUserContext();
   const Router = useRouter();
   const [patients, setPatients] = React.useState<PatientsRo[]>([]);
   const [modal, setModal] = React.useState(false);
@@ -46,7 +44,7 @@ const Patients = () => {
 
   useEffect(() => {
     const fetchPatients = async () => {
-      const response = await axios.get(`api/patients/`);
+      const response = await axios.get(`/api/patients`);
       setPatients(response.data);
     };
     fetchPatients();
@@ -66,7 +64,7 @@ const Patients = () => {
       return;
     }
     if (!email) {
-      toast.error(`L&apos;email est obligatoire`);
+      toast.error(`L'email est obligatoire`);
       return;
     }
     const response = await axios.post(`/api/patients`, {
@@ -76,7 +74,6 @@ const Patients = () => {
       sickness: [],
     });
     setPatients([...patients, response.data]);
-    console.log(`submitForm`, { firstname, lastname });
   };
 
   const PatienForm = () => {

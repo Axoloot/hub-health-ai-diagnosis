@@ -1,39 +1,68 @@
-import '@/lib/database';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { ApiError } from 'next/dist/server/api-utils';
+import mongoose from 'mongoose';
+import dbConnect from '@/lib/database';
+import { requireSession } from '@/lib/auth';
 import PatientModel from '@/lib/models/Patients';
 import SicknessModel from '@/lib/models/Sickness';
-import mongoose from 'mongoose';
+
+const EDITABLE_FIELDS = [
+  `description`,
+  `doctor_supposition`,
+  `result`,
+] as const;
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
   try {
+    if (!(await requireSession(req, res))) return;
+    await dbConnect();
+
     switch (req.method) {
-      case `POST`:
-        if (!req.body) throw new ApiError(500, `missing body`);
-        req.body._id = new mongoose.Types.ObjectId();
-        const newSickness = new SicknessModel(req.body);
-        await newSickness.save();
-        await PatientModel.findOneAndUpdate(
-          { _id: req.body.patientId },
-          { $push: { sickness: new mongoose.mongo.ObjectId(newSickness._id) } },
-        );
-        return res.status(200).json(newSickness);
-      case `GET`:
+      case `GET`: {
         const sickness = await SicknessModel.find();
         return res.status(200).json(sickness);
-      case `PATCH`:
-        if (!req.body) throw new ApiError(500, `missing body`);
-        const editedSickness = await SicknessModel.findOneAndUpdate(
-          { id: req.body._id },
-          req.body,
+      }
+      case `POST`: {
+        const { patientId } = req.body ?? {};
+        if (
+          !mongoose.isValidObjectId(patientId) ||
+          !(await PatientModel.exists({ _id: patientId }))
+        ) {
+          return res.status(404).json({ error: `Patient not found` });
+        }
+        const sickness = await SicknessModel.create({
+          ...req.body,
+          _id: new mongoose.Types.ObjectId(),
+        });
+        await PatientModel.findByIdAndUpdate(patientId, {
+          $push: { sickness: sickness._id },
+        });
+        return res.status(201).json(sickness);
+      }
+      case `PATCH`: {
+        const { _id } = req.body ?? {};
+        if (!_id) return res.status(400).json({ error: `Missing _id` });
+        const update = Object.fromEntries(
+          EDITABLE_FIELDS.filter((f) => req.body[f] !== undefined).map((f) => [
+            f,
+            req.body[f],
+          ]),
         );
-        return res.status(200).json(editedSickness);
+        const sickness = await SicknessModel.findByIdAndUpdate(_id, update, {
+          new: true,
+          runValidators: true,
+        });
+        if (!sickness) return res.status(404).json({ error: `Not found` });
+        return res.status(200).json(sickness);
+      }
+      default:
+        return res.status(405).json({ error: `Method Not Allowed` });
     }
   } catch (e) {
     console.error(e);
-    res.status(500).send({ error: (e as Error).message });
+    const status = (e as Error).name === `ValidationError` ? 400 : 500;
+    return res.status(status).json({ error: (e as Error).message });
   }
 }

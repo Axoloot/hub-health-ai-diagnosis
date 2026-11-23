@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { Text } from '@nextui-org/react';
-import { useUserContext } from '../../providers/userProvider';
 import { useRouter } from 'next/router';
 import { ROUTER } from '../../lib/utils';
 import { SicknessCard, Layout, Button } from '@/components';
@@ -32,23 +31,18 @@ const FichePatient = () => {
   const [sicknessData, setSicknessData] = React.useState<SicknessRo[]>(
     [] as SicknessRo[],
   );
-  const { isAuthenticated } = useUserContext();
   const patientId = Router.query.id;
 
   const fetchPatient = async () => {
     const response = await axios.get(`/api/patients`, {
       params: { id: patientId },
     });
-    console.log(response.data);
     setPatient(response.data);
     setSicknessData(response.data.sickness);
   };
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      Router.push(ROUTER.login);
-    }
-    fetchPatient();
+    if (patientId) fetchPatient();
   }, [patientId]);
 
   return (

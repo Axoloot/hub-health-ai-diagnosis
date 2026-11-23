@@ -16,9 +16,9 @@ const Login = () => {
   const [email, setEmail] = useState(``);
   const [pseudo, setPseudo] = useState(``);
   const [password, setPassword] = useState(``);
-  const { signup } = useUserContext();
+  const { signup, login } = useUserContext();
 
-  const submitForm = ({ email, password, pseudo }: RegisterFormProps) => {
+  const submitForm = async ({ email, password, pseudo }: RegisterFormProps) => {
     if (!email) {
       toast.error(`L'email est obligatoire`);
       return;
@@ -31,7 +31,16 @@ const Login = () => {
       toast.error(`Le pseudo est obligatoire`);
       return;
     }
-    signup({ email, password, pseudo });
+    if (password.length < 8) {
+      toast.error(`Le mot de passe doit contenir au moins 8 caractères`);
+      return;
+    }
+    if (!(await signup({ email, password, pseudo }))) {
+      toast.error(`Impossible de créer le compte`);
+      return;
+    }
+    if (await login(email, password, false))
+      window.location.assign(ROUTER.home);
   };
 
   return (

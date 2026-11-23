@@ -1,51 +1,60 @@
 import Head from 'next/head';
 import { AppProps } from 'next/app';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { ReactNode, useEffect } from 'react';
 
 import '../../styles/card.css';
 import '../../styles/layout.css';
 import '../../styles/globals.css';
 import UserProvider from '../providers/userProvider';
+import { useUserContext } from '../providers/userProvider';
+import { ROUTER } from '../lib/utils';
 
 import { NavBar } from '../components';
 
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-export default function MyApp({ Component, pageProps }: AppProps) {
-  const AnyComponent = Component as any;
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+const PUBLIC_ROUTES = [ROUTER.login, ROUTER.register];
+
+/** Sends visitors to the login page until the session check says they are signed in. */
+function AuthGate({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { loading, isAuthenticated } = useUserContext();
+  const isPublic = PUBLIC_ROUTES.includes(router.pathname);
 
   useEffect(() => {
-    const user = window.localStorage.getItem(`user`);
-    if (user) {
-      setIsLoggedIn(true);
-    }
-  }, []);
+    if (loading) return;
+    if (!isAuthenticated && !isPublic) router.replace(ROUTER.login);
+    if (isAuthenticated && isPublic) router.replace(ROUTER.home);
+  }, [loading, isAuthenticated, isPublic, router]);
 
+  if (isPublic) return <>{children}</>;
+  if (loading || !isAuthenticated) return null;
+  return (
+    <>
+      <NavBar />
+      {children}
+    </>
+  );
+}
+
+export default function MyApp({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
-        <meta charSet="utf-8" />
-        <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
         <meta
-          name="viewport"
-          content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no"
+          name="description"
+          content="HUB-Health : plateforme de diagnostic assisté par IA pour les médecins (démo portfolio)."
         />
-        <meta name="description" content="Description" />
-        <meta name="keywords" content="Keywords" />
-        <title>Hub HEALTH</title>
-
+        <title>HUB-Health</title>
         <meta name="theme-color" content="#f2f2f2" />
       </Head>
       <UserProvider>
-        {isLoggedIn && (
-          <>
-            <NavBar />
-            <AnyComponent className="p-8" {...pageProps} />
-          </>
-        )}
-        {!isLoggedIn && <AnyComponent {...pageProps} />}
+        <AuthGate>
+          <Component {...pageProps} />
+        </AuthGate>
       </UserProvider>
       <ToastContainer />
     </>

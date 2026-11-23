@@ -1,20 +1,23 @@
-import '@/lib/database';
 import type { NextApiRequest, NextApiResponse } from 'next';
+import dbConnect from '@/lib/database';
+import { requireSession } from '@/lib/auth';
 import PatientModel from '@/lib/models/Patients';
-import '@/lib/models/Sickness';
+import '@/lib/models/Sickness'; // registers the model used by populate()
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
+  if (req.method !== `GET`) {
+    return res.status(405).json({ error: `Method Not Allowed` });
+  }
   try {
-    switch (req.method) {
-      case `GET`:
-        const patients = await PatientModel.find().populate(`sickness`);
-        return res.status(200).json(patients);
-    }
+    if (!(await requireSession(req, res))) return;
+    await dbConnect();
+    const patients = await PatientModel.find().populate(`sickness`);
+    return res.status(200).json(patients);
   } catch (e) {
     console.error(e);
-    res.status(500).send({ error: (e as Error).message });
+    return res.status(500).json({ error: `Internal Server Error` });
   }
 }

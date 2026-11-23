@@ -6,12 +6,13 @@ declare global {
     email: string;
     password: string;
     pseudo: string;
-    profilImg?: string;
   }
 
   type UserCtxValue = {
     user: IUser | null;
     error: string | null;
+    /** True until the initial session check has finished. */
+    loading: boolean;
     isAuthenticated: boolean;
     login: (
       email: string,
@@ -19,6 +20,7 @@ declare global {
       redirect?: boolean,
       callback?: string,
     ) => Promise<boolean>;
+    loginDemo: () => Promise<void>;
     signup: (payload: SignUpPayload) => Promise<boolean>;
     logout: () => void;
   };

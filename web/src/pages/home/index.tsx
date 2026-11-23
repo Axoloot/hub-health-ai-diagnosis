@@ -1,8 +1,4 @@
-import React, { useEffect } from 'react';
 import { Text } from '@nextui-org/react';
-import { useUserContext } from '../../providers/userProvider';
-import { useRouter } from 'next/router';
-import { ROUTER } from '../../lib/utils';
 import { SickCard, Layout } from '@/components';
 
 const sicknessData = [
@@ -25,15 +21,6 @@ const sicknessData = [
 ];
 
 const Home = () => {
-  const Router = useRouter();
-  const { isAuthenticated } = useUserContext();
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      Router.push(ROUTER.login);
-    }
-  }, []);
-
   return (
     <>
       <Layout>

@@ -1,20 +1,33 @@
-import '@/lib/database';
-import NextAuth, { SessionStrategy } from 'next-auth';
-import User from '@/lib/models/User';
+import NextAuth, { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
+import dbConnect from '@/lib/database';
+import User from '@/lib/models/User';
+import { DEMO_ENABLED, ensureDemoUser, seedDemoDataIfEmpty } from '@/lib/demo';
 
-export const authOptions = {
-  session: {
-    strategy: `jwt` as SessionStrategy,
-  },
-  secret: `1234`,
-  debug: true,
+export const authOptions: NextAuthOptions = {
+  session: { strategy: `jwt` },
+  // Read from NEXTAUTH_SECRET; next-auth refuses to start in production without it.
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === `development`,
   pages: {
-    signIn: `/`,
-    error: `/`,
+    signIn: `/login`,
+    error: `/login`,
   },
   providers: [
+    // One-click portfolio demo: signs in as the shared demo doctor, no password.
+    CredentialsProvider({
+      id: `demo`,
+      name: `Démo`,
+      credentials: {},
+      async authorize() {
+        if (!DEMO_ENABLED) return null;
+        await dbConnect();
+        const user = await ensureDemoUser();
+        await seedDemoDataIfEmpty();
+        return { id: String(user._id), email: user.email, name: user.pseudo };
+      },
+    }),
     CredentialsProvider({
       name: `credentials`,
       credentials: {
@@ -22,11 +35,16 @@ export const authOptions = {
         password: { label: `Password`, type: `password` },
       },
       async authorize(credentials) {
-        if (!credentials) return;
+        if (!credentials?.email || !credentials.password) return null;
+        await dbConnect();
         const user = await User.findOne({ email: credentials.email });
-        if (user && bcrypt.compareSync(credentials.password, user.password))
-          return user;
-        return null;
+        if (
+          !user ||
+          !(await bcrypt.compare(credentials.password, user.password))
+        )
+          return null;
+        // Only expose non-sensitive fields: this object ends up in the JWT.
+        return { id: String(user._id), email: user.email, name: user.pseudo };
       },
     }),
   ],
