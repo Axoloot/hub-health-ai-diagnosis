@@ -1,0 +1,8 @@
+.DS_Store
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+.venv/
+# Chest X-ray images are too large for git (download from Kaggle, see ai/README.md)
+ai/chest_xray/chest_xray_dataset/
