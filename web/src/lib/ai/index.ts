@@ -50,6 +50,33 @@ export function loadModel(name: ModelName): Promise<GraphModel> {
   return model;
 }
 
+const INPUT_SHAPE: Record<ModelName, number[]> = {
+  heart_disease: [1, 13],
+  breast_cancer: [1, 30],
+  fetal_health: [1, 21],
+  chest_xray: [1, XRAY_SIZE, XRAY_SIZE, 1],
+};
+
+const warmed = new Map<ModelName, Promise<void>>();
+
+/**
+ * Downloads the model and runs it once on zeros, so the first real
+ * prediction doesn't pay for TF.js setup and kernel compilation.
+ */
+export function warmUp(name: ModelName): Promise<void> {
+  let done = warmed.get(name);
+  if (!done) {
+    done = Promise.all([loadTf(), loadModel(name)]).then(([tf, model]) => {
+      tf.tidy(() => {
+        (model.predict(tf.zeros(INPUT_SHAPE[name])) as Tensor).dataSync();
+      });
+    });
+    done.catch(() => warmed.delete(name));
+    warmed.set(name, done);
+  }
+  return done;
+}
+
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
 const toPrediction = (score: number): Prediction => ({
@@ -92,14 +119,16 @@ export async function predictTabular(
   return toPrediction(clamp01(score));
 }
 
+export const XRAY_INPUT_SIZE = XRAY_SIZE;
+
 /**
  * Reproduces the training preprocessing in ai/chest_xray/load_dataset.py:
  * PIL grayscale (ITU-R 601-2 luma) -> resize to 48x48 -> raw 0-255 values.
- * The CNN outputs 2 logits [NORMAL, PNEUMONIA]; softmax gives P(PNEUMONIA).
+ * Returns the exact 48x48 pixels the model receives.
  */
-export async function predictChestXray(
+export async function preprocessXray(
   image: HTMLImageElement,
-): Promise<Prediction> {
+): Promise<Float32Array> {
   await image.decode(); // make sure the pixels are available
   // Downscale with the browser's high-quality resampler, which averages
   // pixels like PIL's resize instead of skipping them.
@@ -118,7 +147,13 @@ export async function predictChestXray(
     const [r, g, b] = [data[i * 4], data[i * 4 + 1], data[i * 4 + 2]];
     gray[i] = Math.round((r * 299 + g * 587 + b * 114) / 1000);
   }
+  return gray;
+}
 
+/** The CNN outputs 2 logits [NORMAL, PNEUMONIA]; softmax gives P(PNEUMONIA). */
+export async function predictXrayPixels(
+  gray: Float32Array,
+): Promise<Prediction> {
   const [tf, model] = await Promise.all([loadTf(), loadModel(`chest_xray`)]);
   const score = tf.tidy(() => {
     const input = tf.tensor4d(gray, [1, XRAY_SIZE, XRAY_SIZE, 1]);
@@ -126,4 +161,10 @@ export async function predictChestXray(
     return tf.softmax(logits).dataSync()[1];
   });
   return toPrediction(score);
+}
+
+export async function predictChestXray(
+  image: HTMLImageElement,
+): Promise<Prediction> {
+  return predictXrayPixels(await preprocessXray(image));
 }

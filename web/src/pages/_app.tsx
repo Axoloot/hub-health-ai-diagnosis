@@ -16,20 +16,23 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 const PUBLIC_ROUTES = [ROUTER.login, ROUTER.register];
+// Open to everyone, signed in or not, without the app's navbar.
+const OPEN_ROUTES = [`/playground`];
 
 /** Sends visitors to the login page until the session check says they are signed in. */
 function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { loading, isAuthenticated } = useUserContext();
   const isPublic = PUBLIC_ROUTES.includes(router.pathname);
+  const isOpen = OPEN_ROUTES.includes(router.pathname);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || isOpen) return;
     if (!isAuthenticated && !isPublic) router.replace(ROUTER.login);
     if (isAuthenticated && isPublic) router.replace(ROUTER.home);
-  }, [loading, isAuthenticated, isPublic, router]);
+  }, [loading, isAuthenticated, isPublic, isOpen, router]);
 
-  if (isPublic) return <>{children}</>;
+  if (isPublic || isOpen) return <>{children}</>;
   if (loading || !isAuthenticated) return null;
   return (
     <>

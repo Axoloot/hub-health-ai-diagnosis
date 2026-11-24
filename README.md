@@ -4,13 +4,15 @@
 screening models (heart disease, breast cancer, fetal health and pneumonia on chest X-rays) whose
 predictions are saved to the patient's record.
 
-> **Live demo:** _add your Vercel URL here_ · click **"Essayer la démo"**, no account needed.
-> The UI is in French.
+> **Model playground:** https://hub-health-ai-diagnosis.vercel.app/playground. Try the four models
+> in your browser, no account needed.
+>
+> **Doctor app demo:** https://hub-health-ai-diagnosis.vercel.app. Click **"Essayer la démo"** (the app UI is in French).
 
 > ⚠️ **Demo project, not a medical device.** Patients are fictional and the models were trained as a
 > learning exercise. Do not use them for real diagnosis.
 
-<!-- Add screenshots: docs/login.png, docs/patient.png -->
+![Model playground: the pneumonia model on a chest X-ray, with the 48 × 48 input it sees](docs/playground.png)
 
 ## Highlights
 
@@ -125,4 +127,8 @@ Built in 2023 by a team of three:
 The AI models were written in pair programming, with commits pushed from Vincent's machine, so
 the `ai/` history shows him as the author.
 
-Both original repositories were merged into this monorepo with their full git history.
+Both original repositories were merged into this monorepo with their full git history:
+
+- Web app: [Axoloot/HUB-Health](https://github.com/Axoloot/HUB-Health) (archived)
+- AI models: [vincent-lemesle/HUB-IA](https://github.com/vincent-lemesle/HUB-IA) (private, so the link
+  only works for its collaborators)
