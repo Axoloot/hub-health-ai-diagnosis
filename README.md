@@ -118,8 +118,11 @@ PATH=.venv/bin:$PATH ai/convert_to_tfjs.sh
 
 Built in 2023 by a team of three:
 
-- **Cyril de Lajudie** ([@Axoloot](https://github.com/Axoloot)): web app
+- **Cyril de Lajudie** ([@Axoloot](https://github.com/Axoloot)): AI models (pair-programmed with Vincent) and web app
+- **Vincent Lemesle** ([@vincent-lemesle](https://github.com/vincent-lemesle)): AI models (pair-programmed with Cyril)
 - **Antoine Famibelle**: web app
-- **Vincent Lemesle** ([@vincent-lemesle](https://github.com/vincent-lemesle)): AI models
+
+The AI models were written in pair programming, with commits pushed from Vincent's machine, so
+the `ai/` history shows him as the author.
 
 Both original repositories were merged into this monorepo with their full git history.
