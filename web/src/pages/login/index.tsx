@@ -43,6 +43,11 @@ const Login = () => {
           patients sont fictifs et les modèles ne sont pas des dispositifs
           médicaux.
         </p>
+        <p className="text-sm text-center mb-8">
+          <Link href="/playground" className="underline">
+            Tester les modèles sans se connecter (playground)
+          </Link>
+        </p>
         {DEMO_ENABLED && (
           <div className="flex flex-col items-center mb-6">
             <Button
